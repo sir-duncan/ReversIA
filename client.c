@@ -1,5 +1,198 @@
 #include "client.h"
 
+int minimaxValue(int **array, Info *vii, char player, char team, char depth)
+{
+    if(depth == 0 || arrayIsFull(array, vii)) return heuristic(array, vii); /// If depth is deep enough
+    int numMove = 0, count = 1;
+    char enemy = ((team == 1) ? 2 : 1), i = 0;
+    Coord *actuel = NULL;
+    detection(array, &actuel, vii, team, &numMove);
+    if(actuel != NULL) {
+        int bestMoveVal = ((player == team) ? -9999 : 9999), val = 0;
+        Coord *bestMove = NULL;
+        int **tempArray = malloc(sizeof(int*) * vii->size_y);
+        for(i = 0; i < vii->size_y; i++) tempArray[i] = malloc(sizeof(int) * vii->size_x); /// Do the free thin'
+        while(actuel != 0) {
+            copyBoard(&tempArray, array, vii); /// Fresh copy
+            simulate(&tempArray, actuel, vii, team); /// Simulate move
+            val = minimaxValue(tempArray, vii, player, enemy, depth - 1);
+            if(player == team && val > bestMoveVal) bestMoveVal = val, bestMove = actuel;
+            else if(player != team && val < bestMoveVal) bestMoveVal = val, bestMove = actuel;
+            actuel = actuel->next, count++;
+        }
+		freeArray(&tempArray, vii);
+		freeAllMove(&actuel);
+        return bestMoveVal;
+    }
+    return -1; /// Should never pass through here
+}
+
+void minimax(int **array, Coord **move, Info *vii)
+{
+    int numMove = 0, count = 1;
+    char team = vii->team, enemy = ((team == 1) ? 2 : 1), i = 0;
+    Coord *actuel = NULL;
+    detection(array, &actuel, vii, team, &numMove);
+    if(actuel != NULL) {
+        int bestMoveVal = -9999, val = 0;
+        Coord *bestMove = NULL;
+        int **tempArray = malloc(sizeof(int*) * vii->size_y);
+        for(i = 0; i < vii->size_y; i++) tempArray[i] = malloc(sizeof(int) * vii->size_x);
+        while(actuel != NULL) {
+            copyBoard(&tempArray, array, vii); /// Fresh copy
+            simulate(&tempArray, actuel, vii, team); /// Simulate move
+            val = minimaxValue(tempArray, vii, team, enemy, DEPTH);
+            if(val > bestMoveVal) bestMoveVal = val, bestMove = actuel;
+            actuel = actuel->next, count++;
+        }
+        *move = bestMove;
+		freeArray(&tempArray, vii);
+		freeAllMove(&actuel);
+    }
+}
+
+
+void display(int **array, Info *vii, Coord *move)
+{
+    int i = 0, j = 0;
+    for(i = 0; i < vii->size_y; i++){
+        for(j = 0; j < vii->size_x; j++){
+            if(array[i][j] == 0) printf(" . "); /// Displaying board
+            else if(move != NULL && move->y == i && move->x == j) printf("-%d-", array[i][j]);
+            else if(array[i][j] == 2) printf(" O ");
+            else printf(" %d ", array[i][j]);
+        }
+        printf("\n");
+    }
+    printf("\n");
+}
+
+void copyBoard(int ***tempArray, int **array, Info *vii)
+{
+    int i = 0, j = 0;
+    for(i = 0; i < vii->size_y; i++){
+        for(j = 0; j < vii->size_y; j++){
+            (*tempArray)[i][j] = array[i][j];
+        }
+    }
+}
+
+void simulate(int ***tempArray, Coord *move, Info *vii, char team)
+{
+    int temp = 0, i = move->y, j = move->x, enemy = ((team == 1) ? 2 : 1);
+    Coord *test = malloc(sizeof(Coord));
+    test->y = move->y, test->x = move->x;
+    (*tempArray)[i][j] = team;
+    for(temp = 0; temp < 9; temp++){ /// For every direction
+        if(i - 1 + (temp / 3) < 0 || j - 1 + (temp % 3) < 0) continue; /// If 0, skip
+        if(i - 1 + (temp / 3) >= vii->size_y || j - 1 + (temp % 3) >= vii->size_x) continue; /// Skip if player
+        if((*tempArray)[i - 1 + (temp / 3)][j - 1 + (temp % 3)] == enemy){
+            test->y = move->y, test->x = move->x;
+            pathTesting(*tempArray, vii, &test, temp, team);
+            if((*tempArray)[test->y][test->x] == team) changeLine(tempArray, vii, move, temp, team);
+        }
+    }
+}
+
+void createCoord(Coord **possible, int y, int x)
+{
+    Coord *actuel = malloc(sizeof(Coord));
+    actuel->x = x, actuel->y = y;
+    actuel->next = *possible;
+    *possible = actuel;
+}
+
+void pathTesting(int **array, Info *vii, Coord **test, int dir, char team)
+{
+    int x = (*test)->x, y = (*test)->y, enemy = ((team == 1) ? 2 : 1);
+    do{
+        if(dir == 0) x--, y--;
+        else if(dir == 1) y--;
+        else if(dir == 2) y--, x++;
+        else if(dir == 3) x--;
+        else if(dir == 5) x++;
+        else if(dir == 6) y++, x--;
+        else if(dir == 7) y++;
+        else if(dir == 8) y++, x++;
+        if(y < 0 || y > vii->size_y - 1 || x < 0 || x > vii->size_x - 1) return;
+        else (*test)->y = y, (*test)->x = x;
+    }while(array[y][x] == enemy);
+}
+
+void detection(int **array, Coord **possible, Info *vii, char team, int *numMove)
+{
+    int i = 0, j = 0, enemy = ((team == 1) ? 2 : 1), temp = 0;
+    Coord *test = malloc(sizeof(Coord));
+    test->next = NULL;
+    if(array == NULL) puts("Array is NULL");
+    for(i = 0; i < vii->size_y; i++){ /// See through the array
+        for(j = 0; j < vii->size_x; j++){
+            if(array[i][j] == team){ /// For every team token in a game
+                for(temp = 0; temp < 9; temp++){ /// For every direction
+                    if(i - 1 + (temp / 3) < 0 || j - 1 + (temp % 3) < 0) continue; /// If 0, skip
+                    if(i - 1 + (temp / 3) >= vii->size_y || j - 1 + (temp % 3) >= vii->size_x) continue; /// Skip if player
+                    if(array[i - 1 + (temp / 3)][j - 1 + (temp % 3)] == enemy){
+                        test->y = i - 1 + (temp / 3), test->x = j - 1 + (temp % 3);
+                        pathTesting(array, vii, &test, temp, team);
+                        if(array[test->y][test->x] == 0){
+                            *numMove += 1;
+                            createCoord(possible, test->y, test->x);
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+void changeLine(int ***array, Info *vii, Coord *debut, int dir, char team)
+{
+    int x = debut->x, y = debut->y, enemy = ((team == 1) ? 2 : 1);
+    while(1){
+        if(dir == 0) x--, y--;
+        else if(dir == 1) y--;
+        else if(dir == 2) y--, x++;
+        else if(dir == 3) x--;
+        else if(dir == 5) x++;
+        else if(dir == 6) y++, x--;
+        else if(dir == 7) y++;
+        else if(dir == 8) y++, x++;
+        if(y < 0 || y > vii->size_y - 1 || x < 0 || x > vii->size_x - 1) return;
+        if((*array)[y][x] == enemy) (*array)[y][x] = team;
+        else break;
+    }
+}
+
+void freeArray(int ***array, Info *vii)
+{
+    int i = 0;
+    for(i = 0; i < vii->size_y; i++) free((*array)[i]);
+}
+
+void freeAllMove(Coord **move)
+{
+    if(*move == NULL) return;
+    Coord *actuel = NULL, *save = *move;
+    while(save != NULL){
+        actuel = save;
+        save = save->next;
+        free(actuel);
+    }
+}
+
+int heuristic(int **array, Info *vii) /// Get the heuristic value of the board
+{
+    int enemy = ((vii->team == 1) ? 2 : 1), i = 0, j = 0, score = 0, escore = 0;
+    for(i = 0; i < vii->size_y; i++){
+        for(j = 0; j < vii->size_x; j++){
+            if(array[i][j] == vii->team) score++;
+            else if(array[i][j] == enemy) escore++;
+        }
+    }
+    //printf("score %d\nescore %d\n", score, escore);
+    return score - escore;
+}
+
 int readData(int sock, char **binary, int *binSize, Info **vii)
 {
 	int i = 0, j = 0, taille, tempSize = 0, **array = NULL;
@@ -25,6 +218,7 @@ int readData(int sock, char **binary, int *binSize, Info **vii)
 			if(response[3] == -1) puts("[-] There was no previous move");
 			else printf("[+] Previous move was : [ %d ; %d ]\n", response[3], response[4]);
 			*binary = toBinary(response, taille, 7, binSize);
+			puts("apres binary");
 		}
 		else if(response[2] == OKNOK_MSG){
 			if(response[3] == OK_MSG){
@@ -36,50 +230,9 @@ int readData(int sock, char **binary, int *binSize, Info **vii)
                 return NOK_MSG; /// NEW_MOVE not accepted
              }
 		}
+		puts("end");
 	}
     return NEXT_TURN;
-}
-
-void createCoord(Coord **possible, int y, int x)
-{
-    Coord *actuel = malloc(sizeof(Coord));
-    actuel->x = x, actuel->y = y;
-    actuel->next = *possible;
-    *possible = actuel;
-}
-
-void pathTesting(int **array, Coord **possible, Info *vii, int dir, int y, int x)
-{
-    while(array[y][x] == ((vii->team == 1) ? 2 : 1)){
-        if(dir == 0) x--, y--;
-        else if(dir == 1) y--;
-        else if(dir == 2) y--, x++;
-        else if(dir == 3) x--;
-        else if(dir == 5) x++;
-        else if(dir == 6) y++, x--;
-        else if(dir == 7) y++;
-        else if(dir == 8) y++, x++;
-        if(y < 0 || y > vii->size_y - 1 || x < 0 || x > vii->size_x - 1) return;
-    }
-    if(array[y][x] == 0) createCoord(possible, y, x);
-}
-
-void detection(int **array, Coord **possible, Info *vii)
-{
-    int i = 0, j = 0, enemi = ((vii->team == 1) ? 2 : 1), temp = 0;
-    if(array == NULL) puts("Array is NULL");
-    for(i = 0; i < vii->size_y; i++){ /// See through the array
-        for(j = 0; j < vii->size_x; j++){
-            if(array[i][j] == vii->team){ /// For every team token in a game
-                for(temp = 0; temp < 9; temp++){
-                    if(i - 1 + (temp / 3) < 0 || j - 1 + (temp % 3) < 0) continue;
-                    if(i - 1 + (temp / 3) >= vii->size_y || j - 1 + (temp % 3) >= vii->size_x) continue;
-                    if(array[i - 1 + (temp / 3)][j - 1 + (temp % 3)] == enemi)
-                        pathTesting(array, possible, vii, temp, i - 1 + (temp / 3), j - 1 + (temp % 3));
-                }
-            }
-        }
-    }
 }
 
 void makeArray(int ***array, char *binary, int binSize, int size_x, int size_y)
@@ -154,18 +307,6 @@ void generateResponse(Coord *move, char **serverMsg, int *length)
         (*serverMsg)[3] = move->x, (*serverMsg)[4] = move->y, (*serverMsg)[5] = NEW_MOVE + move->x + move->y;
     else (*serverMsg)[3] = -1, (*serverMsg)[4] = -1, (*serverMsg)[5] = 1;
     (*serverMsg)[6] = '\0', *length = 6;
-}
-
-void display(int **array, Info *vii)
-{
-    int i = 0, j = 0;
-    for(i = 0; i < vii->size_y; i++){
-        for(j = 0; j < vii->size_x; j++){
-            if(array[i][j] == 0) printf(" . "); /// Displaying board
-            else printf(" %d ", array[i][j]);
-        }
-        printf("\n");
-    }
 }
 
 int init(char *pseudo)
