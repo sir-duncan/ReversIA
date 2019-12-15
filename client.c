@@ -1,60 +1,4 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
-#include <sys/types.h>
-#ifdef WIN32 // Libraries for Windows
-    #include <windows.h>
-    #include <winsock2.h>
-#else // Libraries for Linux
-    #include <arpa/inet.h>
-    #include <sys/socket.h>
-    #include <netinet/in.h>
-    #define SOCKET_ERROR -1
-    #define INVALID_SOCKET -1
-    typedef int SOCKET;
-    typedef struct in_addr IN_ADDR;
-    #define closesocket(s) close(s)
-    typedef struct sockaddr SOCKADDR;
-    typedef struct sockaddr_in SOCKADDR_IN;
-#endif
-
-#define IP_ADDRESS "192.168.1.22"// "127.0.0.1"
-#define PORT 8888
-#define SYNCRO 0x55
-#define OK_MSG 0x01
-#define NOK_MSG 0x00
-#define NEW_MOVE 0x03
-#define END_MOVE 0x04
-#define OKNOK_MSG 0x02
-#define NEXT_TURN 0x05
-#define PLAYER_OK 0x10
-#define CONNECT_MESSAGE 0x01
-
-typedef struct coord Coord;
-struct coord{
-    int x, y;
-    Coord *next;
-};
-
-typedef struct {
-	int size_x, size_y;
-	int team;
-} Info;
-
-int init(char *pseudo);
-int readData(int sock, char **binary, int *binSize, Info **vii);
-
-char *toBinary(char *response, int length, int debut, int *binSize);
-
-void display(int **array, Info *vii);
-void sendData(int sock, char *msg, int length);
-void createCoord(Coord **possible, int y, int x);
-void Wydiaw(int **array, Coord **move, Info *vii);
-void detection(int **array, Coord **possible, Info *vii);
-void generateResponse(Coord *move, char **serverMsg, int *length);
-void makeArray(int ***array, char *binary, int binSize, int size_x, int size_y);
-void pathTesting(int **array, Coord **possible, Info *vii, int dir, int y, int x);
+#include "client.h"
 
 int readData(int sock, char **binary, int *binSize, Info **vii)
 {
@@ -94,45 +38,6 @@ int readData(int sock, char **binary, int *binSize, Info **vii)
 		}
 	}
     return NEXT_TURN;
-}
-
-void Wydiaw(int **array, Coord **move, Info *vii) /// Even You Do, I Always Win
-{
-	Coord *actuel = NULL;
-
-	if(*move != NULL) free(*move);
-	detection(array, &actuel, vii);
-    if(actuel == NULL) puts("No next move");
-	else printf("=> next move (%d:%d)\n", actuel->x, actuel->y);
-	*move = actuel;
-}
-
-int main(int argc, char *argv[])
-{
-	int sock = init("Duncan"), temp = 0, i, j;
-	int **array = NULL, binSize = 0, length = 0;
-	char *serverMsg = NULL, *binary = NULL, listen = 1;
-	Coord *move = NULL;
-	Info *vii = malloc(sizeof(Info));
-
-	while(1){
-		temp = readData(sock, &binary, &binSize, &vii); /// Read turn
-        if(temp == NOK_MSG) break;
-        else if(listen && (temp == OK_MSG || temp == NEXT_TURN)) temp = readData(sock, &binary, &binSize, &vii);
-        makeArray(&array, binary, binSize, vii->size_x, vii->size_y); /// Create / Update local array
-        display(array, vii); /// Display the local array
-		Wydiaw(array, &move, vii); /// AI
-        if(move == NULL && !arrayIsFull(array, vii)) listen = 0; // No confirmation
-        else listen = 1;
-		generateResponse(move, &serverMsg, &length); /// Generate response
-		usleep(300000); /// Small delay, otherwise the server doesn't keep up
-		sendData(sock, serverMsg, length); /// Send new move
-        if(move == NULL && arrayIsFull(array, vii)) readData(sock, &binary, &binSize, &vii);
-	}
-
-	close(sock);
-	puts("[+] Disconnected");
-	return 0;
 }
 
 void createCoord(Coord **possible, int y, int x)
