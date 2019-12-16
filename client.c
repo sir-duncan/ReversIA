@@ -27,7 +27,7 @@ int minimaxValue(int **array, Info *vii, char player, char team, char depth)
     return -1; /// Should never pass through here
 }
 
-void minimax(int **array, Coord **move, Info *vii)
+void Wydiaw(int **array, Coord **move, Info *vii)
 {
     int numMove = 0, count = 1;
     char team = vii->team, enemy = ((team == 1) ? 2 : 1), i = 0;
@@ -163,6 +163,16 @@ void changeLine(int ***array, Info *vii, Coord *debut, int dir, char team)
     }
 }
 
+int victory(int **array, Info *vii)
+{
+    int i = 0, j = 0, count = 0;
+    for(i  = 0; i < vii->size_y; i++){
+        for(j = 0; j < vii->size_x; j++)
+            if(array[i][j] == vii->team) count++;
+    }
+    return count;
+}
+
 void freeArray(int ***array, Info *vii)
 {
     int i = 0;
@@ -200,11 +210,10 @@ int readData(int sock, char **binary, int *binSize, Info **vii)
 	if(recv(sock, response, sizeof(char) * 24, 0) < 0)
         printf("[-] Error while reading in the socket");
 	else{
-		taille = response[1];
-        if(taille == 20) taille += 4;
-		printf("[+] Server Message (%d) : ", taille);
-		for(i = 0; i < (taille > strlen(response) ? taille : 5); i++) printf(" %d ", response[i]);
-		printf("\n");
+		taille = response[1], taille += 4;
+		/*printf("[+] Server Message (%d) : ", taille);
+		for(i = 0; i < taille; i++) printf(" %d ", response[i]);
+		printf("\n");*/
 
 		if(response[0] != SYNCRO) printf("[-] Message not for us : %d\n", response[0]);
 		else if(response[2] == PLAYER_OK){ /// Color of team
@@ -215,10 +224,9 @@ int readData(int sock, char **binary, int *binSize, Info **vii)
 		else if(response[2] == NEXT_TURN){
 			puts("[+] Our turn to play");
 			(*vii)->size_x = response[5], (*vii)->size_y = response[6];
-			if(response[3] == -1) puts("[-] There was no previous move");
-			else printf("[+] Previous move was : [ %d ; %d ]\n", response[3], response[4]);
+			/*if(response[3] == -1) puts("[-] There was no previous move");
+			else printf("[+] Previous move was : [ %d ; %d ]\n", response[3], response[4]);*/
 			*binary = toBinary(response, taille, 7, binSize);
-			puts("apres binary");
 		}
 		else if(response[2] == OKNOK_MSG){
 			if(response[3] == OK_MSG){
@@ -230,7 +238,6 @@ int readData(int sock, char **binary, int *binSize, Info **vii)
                 return NOK_MSG; /// NEW_MOVE not accepted
              }
 		}
-		puts("end");
 	}
     return NEXT_TURN;
 }
@@ -291,9 +298,9 @@ void sendData(int sock, char *msg, int length)
 {
     int i = 0;
     if(msg == NULL) return;
-    printf("[*] Sending : ");
+/*    printf("[*] Sending : ");
     for(i < 0; i < length; i++) printf(" %d ", msg[i]);
-    printf("\n");
+    printf("\n");*/
     if(send(sock, msg, length, 0) < 0)
         puts("[-] Error : When sending new message");
 }
@@ -307,6 +314,7 @@ void generateResponse(Coord *move, char **serverMsg, int *length)
         (*serverMsg)[3] = move->x, (*serverMsg)[4] = move->y, (*serverMsg)[5] = NEW_MOVE + move->x + move->y;
     else (*serverMsg)[3] = -1, (*serverMsg)[4] = -1, (*serverMsg)[5] = 1;
     (*serverMsg)[6] = '\0', *length = 6;
+    printf("[+] Next move : [ %d ; %d ]\n", (*serverMsg)[3], (*serverMsg)[4]);
 }
 
 int init(char *pseudo)
