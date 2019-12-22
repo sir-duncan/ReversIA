@@ -58,7 +58,10 @@ void display(int **array, Info *vii, Coord *move)
     for(i = 0; i < vii->size_y; i++){
         for(j = 0; j < vii->size_x; j++){
             if(array[i][j] == 0) printf(" . "); /// Displaying board
-            else if(move != NULL && move->y == i && move->x == j) printf("-%d-", array[i][j]);
+            else if(move != NULL && move->y == i && move->x == j){
+                if(array[i][j] == 2) printf("-O-");
+                else printf("-%d-", array[i][j]);
+            }
             else if(array[i][j] == 2) printf(" O ");
             else printf(" %d ", array[i][j]);
         }
@@ -190,16 +193,33 @@ void freeAllMove(Coord **move)
     }
 }
 
+int isBuffer(Info *vii, int i, int j)
+{
+    if((i == 1 && j == 0) || (i == 1 && j == 1) || (i == 0 && j == 1) || (i == 0 && j == vii->size_x - 2)
+     || (i == 1 && j == vii->size_x - 2) || (i == 1 && j == vii->size_x - 1) || (i == vii->size_y - 2 && j == 0)
+     || (i == vii->size_y - 2 && j == 1) || (i == vii->size_y - 1 && j == 1)
+     || (i == vii->size_y - 2 && j == vii->size_x - 1) || (i == vii->size_y - 2 && j == vii->size_x - 2)
+     || (i == vii->size_y - 1 && j == vii->size_x - 2)) return 1;
+    else return 0;
+}
+
 int heuristic(int **array, Info *vii) /// Get the heuristic value of the board
 {
-    int enemy = ((vii->team == 1) ? 2 : 1), i = 0, j = 0, score = 0, escore = 0;
+    int enemy = ((vii->team == 1) ? 2 : 1), i = 0, j = 0, score = 0, escore = 0, weight = 0;
     for(i = 0; i < vii->size_y; i++){
         for(j = 0; j < vii->size_x; j++){
-            if(array[i][j] == vii->team) score++;
-            else if(array[i][j] == enemy) escore++;
+            if((i < 2 || i > vii->size_y - 3) && (j < 2 || j > vii->size_x - 3)){
+                if((i == 0 || i == vii->size_y - 1) && (j == 0 || j == vii->size_x - 1)) weight = 7; /// If anle
+                else weight = -3;
+            }
+    		else if(((i > 0 || i < vii->size_y - 1) && (j == 0 || j == vii->size_x - 1))
+		          || ((i == 0 || i == vii->size_y - 1) && (j > 0 || j < vii->size_x - 1))) weight = 3;/// If border
+            else weight = 1;
+
+            if(array[i][j] == vii->team) score += weight; /// + 1 par pion
+            else if(array[i][j] == enemy) escore += weight;
         }
     }
-    //printf("score %d\nescore %d\n", score, escore);
     return score - escore;
 }
 

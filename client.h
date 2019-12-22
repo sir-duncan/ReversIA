@@ -20,7 +20,7 @@
 #endif
 
 #define DEPTH 3
-#define IP_ADDRESS "127.0.0.1" //"192.168.1.22"
+#define IP_ADDRESS "137.74.113.61" //"127.0.0.1" //"192.168.1.22"
 #define PORT 8888
 #define SYNCRO 0x55
 #define OK_MSG 0x01
